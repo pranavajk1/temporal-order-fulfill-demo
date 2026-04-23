@@ -1,6 +1,12 @@
-import * as activity from '@temporalio/activity';
 import { Order } from './interfaces/order';
+import type { ExecuteQueryInput, ExecuteQueryResult } from './interfaces/execute-query';
 import { reserveInventory as reserveInventoryAPI } from './api';
+import { simulateLongQuery } from './simulate-long-query';
+
+/** Activity #1 — long “query”; implemented as timed sleep + heartbeats (see simulate-long-query.ts). */
+export async function executeQuery(input: ExecuteQueryInput): Promise<ExecuteQueryResult> {
+  return simulateLongQuery(input);
+}
 
 export async function requireApproval(order: Order): Promise<boolean> {
   console.log(`Checking order requires approval (over $10k)`);

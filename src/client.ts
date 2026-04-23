@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Connection, Client } from '@temporalio/client';
-import { runWorkflows, getDefaultOrders } from './starter';
+import { runWorkflows, getDefaultOrders, startLongQueryDemo } from './starter';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { Order, OrderItem } from './interfaces/order';
@@ -30,7 +30,7 @@ async function run({
   serverNameOverride,
   serverRootCACertificatePath,
   taskQueue,
-}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number) {
+}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number, longQuery?: boolean) {
   let client: Client;
   let connection: Connection | NativeConnection;
 
@@ -77,6 +77,10 @@ async function run({
     : getDefaultOrders();
 
   client = new Client({ connection, namespace });
+  if (longQuery) {
+    await startLongQueryDemo(client, taskQueue);
+    return;
+  }
   await runWorkflows(client, taskQueue, orders);
   // const handle = await client.workflow.getHandle('order-fulfill-0-1776954337310');
   // await handle.terminate();
@@ -156,10 +160,11 @@ function makeOrderInvalid(order: Order): void {
 
 const argv = yargs(hideBin(process.argv)).options({
   numOrders: { type: 'number', alias: 'n' },
-  invalidPercentage: { type: 'number', alias: 'i' }
-}).argv as { numOrders?: number, invalidPercentage?: number };
+  invalidPercentage: { type: 'number', alias: 'i' },
+  longQuery: { type: 'boolean', default: false, description: 'Run LongQueryDemoWorkflow (activity #1 spike)' },
+}).argv as { numOrders?: number; invalidPercentage?: number; longQuery?: boolean };
 
-run(getEnv(), argv.numOrders, argv.invalidPercentage).then(
+run(getEnv(), argv.numOrders, argv.invalidPercentage, argv.longQuery).then(
   () => process.exit(0),
   (err) => {
     console.error(err);

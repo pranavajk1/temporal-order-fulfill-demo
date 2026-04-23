@@ -1,5 +1,6 @@
 import { Client } from '@temporalio/client';
-import { OrderFulfillWorkflow } from './workflows';
+import { LongQueryDemoWorkflow, OrderFulfillWorkflow } from './workflows';
+import type { ExecuteQueryInput } from './interfaces/execute-query';
 import type { Order } from './interfaces/order';
 
 const sampleOrders: Order[] = [
@@ -67,4 +68,32 @@ export async function runWorkflows(client: Client, taskQueue: string, orders: Or
 
 export function getDefaultOrders(): Order[] {
   return sampleOrders;
+}
+
+const defaultLongQueryInput: ExecuteQueryInput = {
+  partnerId: 'demo_partner',
+  queryId: 'q1',
+  runId: 'run_placeholder',
+  simulatedDurationMs: 90_000,
+  heartbeatIntervalMs: 4_000,
+};
+
+/** Run only `LongQueryDemoWorkflow` to exercise long activity #1 + heartbeats in the UI. */
+export async function startLongQueryDemo(
+  client: Client,
+  taskQueue: string,
+  input: Partial<ExecuteQueryInput> = {}
+): Promise<void> {
+  const runId = input.runId ?? `run_${Date.now()}`;
+  const args: [ExecuteQueryInput] = [
+    { ...defaultLongQueryInput, ...input, runId },
+  ];
+  const handle = await client.workflow.start(LongQueryDemoWorkflow, {
+    taskQueue,
+    workflowId: `long-query-demo-${Date.now()}`,
+    args,
+  });
+  console.log('Started LongQueryDemoWorkflow', handle.workflowId);
+  const result = await handle.result();
+  console.log('LongQueryDemoWorkflow completed:', result);
 }
