@@ -20,7 +20,7 @@ export interface Env {
 
 export function getEnv(): Env {
     return {
-        address: process.env.TEMPORAL_ADDRESS || 'localhost:7233',
+        address: process.env.TEMPORAL_ADDRESS || '192.168.64.2:7233',
         namespace: process.env.TEMPORAL_NAMESPACE || 'default',
         clientCertPath: process.env.TEMPORAL_CLIENT_CERT_PATH,
         clientKeyPath: process.env.TEMPORAL_CLIENT_KEY_PATH,

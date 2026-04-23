@@ -78,6 +78,29 @@ async function run({
 
   client = new Client({ connection, namespace });
   await runWorkflows(client, taskQueue, orders);
+  // const handle = await client.workflow.getHandle('order-fulfill-0-1776954337310');
+  // await handle.terminate();
+  // console.log('Schedule deleted');
+  // 1. List every schedule in this namespace
+  // console.log('=== Workflows ===\n');
+  // const workflows = [];
+  // for await (const s of client.workflow.list()) {
+  //   workflows.push(s);
+  // }
+
+  // if (workflows.length === 0) {
+  //   console.log('No schedules found.');
+  //   return;
+  // }
+
+  // for (const workflow of workflows) {
+  //   console.log(`\n--- Workflow: ${workflow.workflowId} ---`);
+  //   const handle = client.workflow.getHandle(workflow.workflowId);
+  //   const query = `TemporalScheduledById = "${workflow.workflowId}"`;
+  //   const results = await handle.query(query);
+  //   console.log(results);
+  // }
+  
 }
 
 // Rest of the code remains unchanged

@@ -44,7 +44,7 @@ export async function reserveInventory(order: Order): Promise<string> {
   console.log("Reserving inventory...");
   await reserveInventoryAPI(order.items);
 
-  await simulateDelay(1000);
+  await simulateDelay(20000);
   return `Inventory reserved for ${order.items.length} items`;
 }
 
@@ -52,7 +52,7 @@ export async function deliverOrder(order: Order): Promise<string> {
   // Simulate order delivery logic
   console.log("Delivering order...");
 
-  await simulateDelay(1000);
+  await simulateDelay(30000);
   return `Order delivered for ${order.items.length} items`;
 }
 
