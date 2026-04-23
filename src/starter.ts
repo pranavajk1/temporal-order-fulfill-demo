@@ -1,6 +1,12 @@
 import { Client } from '@temporalio/client';
-import { LongQueryDemoWorkflow, OrderFulfillWorkflow } from './workflows';
+import {
+  DispatchResumeDemoWorkflow,
+  LongQueryDemoWorkflow,
+  OrderFulfillWorkflow,
+  PodeQueryPipelineWorkflow,
+} from './workflows';
 import type { ExecuteQueryInput } from './interfaces/execute-query';
+import type { DispatchActionsInput, PodeQueryPipelineInput } from './interfaces/dispatch-actions';
 import type { Order } from './interfaces/order';
 
 const sampleOrders: Order[] = [
@@ -96,4 +102,71 @@ export async function startLongQueryDemo(
   console.log('Started LongQueryDemoWorkflow', handle.workflowId);
   const result = await handle.result();
   console.log('LongQueryDemoWorkflow completed:', result);
+}
+
+const defaultDispatchInput: DispatchActionsInput = {
+  resultTableName: 'demo_partner_q1_dispatch_result',
+  runId: 'run_placeholder',
+  rowCount: 32,
+  rowsPerHeartbeat: 4,
+  perRowSimulatedMs: 1,
+  /** Fails on the 3rd row (ord 2); first retry resumes at nextRowOrd 3 (see heartbeats in UI). */
+  failOnRowIndex: 2,
+};
+
+/**
+ * Run only `DispatchResumeDemoWorkflow` — simulates “millions of rows” dispatch via
+ * `heartbeatDetails` + resume; uses Postgres when `DATABASE_URL` is set, else in-memory.
+ */
+export async function startDispatchResumeDemo(
+  client: Client,
+  taskQueue: string,
+  input: Partial<DispatchActionsInput> = {}
+): Promise<void> {
+  const runId = input.runId ?? `run_${Date.now()}`;
+  const resultTableName = input.resultTableName ?? `demo_partner_q1_${runId}_result`;
+  const args: [DispatchActionsInput] = [
+    { ...defaultDispatchInput, ...input, runId, resultTableName },
+  ];
+  const handle = await client.workflow.start(DispatchResumeDemoWorkflow, {
+    taskQueue,
+    workflowId: `dispatch-resume-demo-${Date.now()}`,
+    args,
+  });
+  console.log('Started DispatchResumeDemoWorkflow', handle.workflowId);
+  const result = await handle.result();
+  console.log('DispatchResumeDemoWorkflow completed:', result);
+}
+
+/** executeQuery (short) + dispatch; optional `failOnRowIndex` on dispatch via `dispatchOptions`. */
+export async function startPodeQueryPipelineDemo(
+  client: Client,
+  taskQueue: string,
+  input: Partial<PodeQueryPipelineInput> = {}
+): Promise<void> {
+  const runId = input.runId ?? `run_${Date.now()}`;
+  const { dispatchOptions: inDispatch, runId: _run, ...inputRest } = input;
+  const args: [PodeQueryPipelineInput] = [
+    {
+      partnerId: 'demo_partner',
+      queryId: 'q1',
+      simulatedDurationMs: 5_000,
+      heartbeatIntervalMs: 1_000,
+      ...inputRest,
+      runId,
+      dispatchOptions: {
+        rowsPerHeartbeat: 10,
+        perRowSimulatedMs: 1,
+        ...inDispatch,
+      },
+    },
+  ];
+  const handle = await client.workflow.start(PodeQueryPipelineWorkflow, {
+    taskQueue,
+    workflowId: `pode-3419-pipeline-${Date.now()}`,
+    args,
+  });
+  console.log('Started PodeQueryPipelineWorkflow', handle.workflowId);
+  const result = await handle.result();
+  console.log('PodeQueryPipelineWorkflow completed:', result);
 }

@@ -1,7 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Connection, Client } from '@temporalio/client';
-import { runWorkflows, getDefaultOrders, startLongQueryDemo } from './starter';
+import {
+  runWorkflows,
+  getDefaultOrders,
+  startLongQueryDemo,
+  startDispatchResumeDemo,
+  startPodeQueryPipelineDemo,
+} from './starter';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import type { Order, OrderItem } from './interfaces/order';
@@ -30,7 +36,7 @@ async function run({
   serverNameOverride,
   serverRootCACertificatePath,
   taskQueue,
-}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number, longQuery?: boolean) {
+}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number, longQuery?: boolean, dispatchResume?: boolean, podeQueryPipeline?: boolean) {
   let client: Client;
   let connection: Connection | NativeConnection;
 
@@ -77,6 +83,14 @@ async function run({
     : getDefaultOrders();
 
   client = new Client({ connection, namespace });
+  if (podeQueryPipeline) {
+    await startPodeQueryPipelineDemo(client, taskQueue);
+    return;
+  }
+  if (dispatchResume) {
+    await startDispatchResumeDemo(client, taskQueue);
+    return;
+  }
   if (longQuery) {
     await startLongQueryDemo(client, taskQueue);
     return;
@@ -162,9 +176,25 @@ const argv = yargs(hideBin(process.argv)).options({
   numOrders: { type: 'number', alias: 'n' },
   invalidPercentage: { type: 'number', alias: 'i' },
   longQuery: { type: 'boolean', default: false, description: 'Run LongQueryDemoWorkflow (activity #1 spike)' },
-}).argv as { numOrders?: number; invalidPercentage?: number; longQuery?: boolean };
+  dispatchResume: {
+    type: 'boolean',
+    default: false,
+    description: 'Run DispatchResumeDemoWorkflow: activity #2, heartbeat checkpoint + fail/retry resume',
+  },
+  podeQueryPipeline: {
+    type: 'boolean',
+    default: false,
+    description: 'Run PodeQueryPipelineWorkflow: executeQuery (short) then dispatchActions',
+  },
+}).argv as {
+  numOrders?: number;
+  invalidPercentage?: number;
+  longQuery?: boolean;
+  dispatchResume?: boolean;
+  podeQueryPipeline?: boolean;
+};
 
-run(getEnv(), argv.numOrders, argv.invalidPercentage, argv.longQuery).then(
+run(getEnv(), argv.numOrders, argv.invalidPercentage, argv.longQuery, argv.dispatchResume, argv.podeQueryPipeline).then(
   () => process.exit(0),
   (err) => {
     console.error(err);

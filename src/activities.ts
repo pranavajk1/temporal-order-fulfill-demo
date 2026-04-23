@@ -1,11 +1,18 @@
 import { Order } from './interfaces/order';
 import type { ExecuteQueryInput, ExecuteQueryResult } from './interfaces/execute-query';
+import type { DispatchActionsInput, DispatchActionsResult } from './interfaces/dispatch-actions';
 import { reserveInventory as reserveInventoryAPI } from './api';
 import { simulateLongQuery } from './simulate-long-query';
+import { dispatchActions as runDispatch } from './dispatch-actions';
 
 /** Activity #1 — long “query”; implemented as timed sleep + heartbeats (see simulate-long-query.ts). */
 export async function executeQuery(input: ExecuteQueryInput): Promise<ExecuteQueryResult> {
   return simulateLongQuery(input);
+}
+
+/** Activity #2 — read result rows, dispatch with heartbeat checkpoints; resume on retry (see dispatch-actions.ts). */
+export async function dispatchActions(input: DispatchActionsInput): Promise<DispatchActionsResult> {
+  return runDispatch(input);
 }
 
 export async function requireApproval(order: Order): Promise<boolean> {
