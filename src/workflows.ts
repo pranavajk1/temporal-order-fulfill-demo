@@ -46,11 +46,12 @@ export async function PodeQueryPipelineWorkflow(
 ): Promise<PodeQueryPipelineResult> {
     const { dispatchOptions, ...queryIn } = input;
     const query = await executeQuery(queryIn);
+    const d = dispatchOptions ?? {};
     const dispatch = await dispatchActions({
         resultTableName: query.resultTableName,
         runId: queryIn.runId,
-        rowCount: dispatchOptions?.rowCount ?? query.simulatedRowCount,
-        ...dispatchOptions,
+        ...d,
+        ...(!d.useInventoryTable && { rowCount: d.rowCount ?? query.simulatedRowCount }),
     });
     return { query, dispatch };
 }

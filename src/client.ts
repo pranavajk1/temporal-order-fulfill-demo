@@ -1,3 +1,4 @@
+import './load-env';
 import fs from 'fs/promises';
 import path from 'path';
 import { Connection, Client } from '@temporalio/client';

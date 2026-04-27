@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "ts-node src/worker.ts",
     "start.watch": "nodemon src/worker.ts",
-    "workflow": "ts-node src/client.ts"
+    "workflow": "ts-node src/client.ts",
+    "export-csv": "NODE_OPTIONS=--max-old-space-size=16384 ts-node src/export-to-csv.ts"
   },
   "nodemonConfig": {
     "execMap": {
@@ -25,6 +26,7 @@
     "@temporalio/worker": "^1.10.2",
     "@temporalio/workflow": "^1.10.2",
     "@types/pg": "^8.20.0",
+    "dotenv": "^17.4.2",
     "pg": "^8.20.0",
     "yargs": "^17.7.2"
   },

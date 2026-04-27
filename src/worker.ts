@@ -1,3 +1,4 @@
+import './load-env';
 import fs from 'fs/promises';
 import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './activities';

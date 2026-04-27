@@ -1,3 +1,4 @@
+import './load-env';
 import { Client } from '@temporalio/client';
 import {
   DispatchResumeDemoWorkflow,
@@ -104,19 +105,41 @@ export async function startLongQueryDemo(
   console.log('LongQueryDemoWorkflow completed:', result);
 }
 
-const defaultDispatchInput: DispatchActionsInput = {
-  resultTableName: 'demo_partner_q1_dispatch_result',
-  runId: 'run_placeholder',
-  rowCount: 32,
-  rowsPerHeartbeat: 4,
-  perRowSimulatedMs: 1,
-  /** Fails on the 3rd row (ord 2); first retry resumes at nextRowOrd 3 (see heartbeats in UI). */
-  failOnRowIndex: 2,
-};
+/** `PODE_DISPATCH_USE_SEED=1` (or `true` / `yes`) -> tiny `pode_result_rows` + failure demo, not your real `inventory_items`. */
+function useSeedTableEnv(): boolean {
+  const v = process.env.PODE_DISPATCH_USE_SEED;
+  return v === '1' || v === 'true' || v === 'yes';
+}
 
 /**
- * Run only `DispatchResumeDemoWorkflow` — simulates “millions of rows” dispatch via
- * `heartbeatDetails` + resume; uses Postgres when `DATABASE_URL` is set, else in-memory.
+ * By default, dispatch scans `public.inventory_items` (keyset on `id`) as long as the **worker** has
+ * `DATABASE_URL` in `.env` (see `worker.ts` / `import 'dotenv/config'`). Opt out: `PODE_DISPATCH_USE_SEED=1`.
+ */
+function defaultDispatchInputBase(): DispatchActionsInput {
+  if (useSeedTableEnv()) {
+    return {
+      resultTableName: 'demo_partner_q1_dispatch_result',
+      runId: 'run_placeholder',
+      useInventoryTable: false,
+      rowCount: 32,
+      rowsPerHeartbeat: 4,
+      perRowSimulatedMs: 1,
+      failOnRowIndex: 2,
+    };
+  }
+  return {
+    resultTableName: 'demo_dispatch_logical',
+    runId: 'run_placeholder',
+    useInventoryTable: true,
+    rowsPerHeartbeat: 2_000,
+    perRowSimulatedMs: 0,
+    batchSize: 2_000,
+  };
+}
+
+/**
+ * Run only `DispatchResumeDemoWorkflow` — by default `useInventoryTable: true` and keyset scan of
+ * `public.inventory_items` (requires `DATABASE_URL` in the **worker** `.env`). Set `PODE_DISPATCH_USE_SEED=1` for a tiny in-memory/seed run.
  */
 export async function startDispatchResumeDemo(
   client: Client,
@@ -126,7 +149,7 @@ export async function startDispatchResumeDemo(
   const runId = input.runId ?? `run_${Date.now()}`;
   const resultTableName = input.resultTableName ?? `demo_partner_q1_${runId}_result`;
   const args: [DispatchActionsInput] = [
-    { ...defaultDispatchInput, ...input, runId, resultTableName },
+    { ...defaultDispatchInputBase(), ...input, runId, resultTableName },
   ];
   const handle = await client.workflow.start(DispatchResumeDemoWorkflow, {
     taskQueue,
@@ -146,6 +169,7 @@ export async function startPodeQueryPipelineDemo(
 ): Promise<void> {
   const runId = input.runId ?? `run_${Date.now()}`;
   const { dispatchOptions: inDispatch, runId: _run, ...inputRest } = input;
+  const seed = useSeedTableEnv();
   const args: [PodeQueryPipelineInput] = [
     {
       partnerId: 'demo_partner',
@@ -155,8 +179,10 @@ export async function startPodeQueryPipelineDemo(
       ...inputRest,
       runId,
       dispatchOptions: {
-        rowsPerHeartbeat: 10,
-        perRowSimulatedMs: 1,
+        useInventoryTable: !seed,
+        rowsPerHeartbeat: seed ? 10 : 2_000,
+        perRowSimulatedMs: seed ? 1 : 0,
+        batchSize: 2_000,
         ...inDispatch,
       },
     },
