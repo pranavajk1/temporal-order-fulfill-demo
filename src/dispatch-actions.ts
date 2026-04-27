@@ -288,9 +288,7 @@ async function dispatchFromInventory(
 
     for (const r of poolRows) {
       activity.Context.current().cancellationSignal.throwIfAborted();
-      if (perRowSimulatedMs > 0) {
-        await sleep(perRowSimulatedMs);
-      }
+      await performPerRowDispatchActionInventory(perRowSimulatedMs, r);
       total += 1;
       sinceLastHb += 1;
       const idStr = rowIdToString(r.id);
@@ -340,6 +338,35 @@ function tableNotFoundHint(qualified: string, err: unknown): Error {
     );
   }
   return err instanceof Error ? err : new Error(String(err));
+}
+
+/**
+ * One logical “dispatch” step: the work for a **single** result row (e.g. emit job, call downstream API).
+ * Batches only size how many rows we read from Postgres per round trip; the unit of work is this call.
+ * Inventory path is read-only: simulates latency only (no side effects on the scanned table by default).
+ */
+async function performPerRowDispatchActionInventory(
+  perRowSimulatedMs: number,
+  _row: { id: unknown }
+): Promise<void> {
+  if (perRowSimulatedMs > 0) {
+    await sleep(perRowSimulatedMs);
+  }
+}
+
+/** Seed / `pode_result_rows`: per-row “action” is a row status update (idempotent story for the demo). */
+async function performPerRowDispatchActionSeed(
+  usePg: boolean,
+  resultTableName: string,
+  rec: { ord: number; data: string },
+  pool: Pool
+): Promise<void> {
+  if (usePg) {
+    await pool.query(
+      `UPDATE pode_result_rows SET status = 'dispatched' WHERE source_key = $1 AND ord = $2`,
+      [resultTableName, rec.ord]
+    );
+  }
 }
 
 async function fetchInventoryKeyset(
@@ -424,12 +451,7 @@ async function dispatchFromSeedOrMemory(
       if (perRowSimulatedMs > 0) {
         await sleep(perRowSimulatedMs);
       }
-      if (usePg) {
-        await (await getPool()).query(
-          `UPDATE pode_result_rows SET status = 'dispatched' WHERE source_key = $1 AND ord = $2`,
-          [resultTableName, rec.ord]
-        );
-      }
+      await performPerRowDispatchActionSeed(usePg, resultTableName, rec, await getPool());
       total += 1;
       sinceLastHb += 1;
       const doneOrdExclusive = rec.ord + 1;

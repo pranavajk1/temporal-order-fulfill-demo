@@ -1,8 +1,10 @@
 import type { ExecuteQueryInput, ExecuteQueryResult } from './execute-query';
 
 /**
- * Activity #2 (dispatchActions) — PODE-3419 stand-in: read a “result” row set, dispatch
- * per row, checkpoint progress in activity heartbeats, resume on retry from heartbeatDetails.
+ * Activity #2 (dispatchActions) — PODE-3419 stand-in: read a Trino-sized result in **batches** (keyset
+ * pages) for I/O only; **each row** is processed with its own dispatch action. Heartbeats checkpoint
+ * after a configurable number of **rows**, not “one heartbeat per batch.” Resume on retry uses
+ * `heartbeatDetails` (e.g. last id / next ord).
  */
 export type DispatchDataMode = 'memory' | 'seed' | 'inventory';
 
