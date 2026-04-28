@@ -161,6 +161,56 @@ export async function startDispatchResumeDemo(
   console.log('DispatchResumeDemoWorkflow completed:', result);
 }
 
+/**
+ * Start many `DispatchResumeDemoWorkflow` runs (e.g. scale / queueing tests). Submits to Temporal
+ * only; does not await results — compare worker `activity.log` / UI for when each is picked.
+ */
+export async function startDispatchResumeDemos(
+  client: Client,
+  taskQueue: string,
+  count: number,
+  input: Partial<DispatchActionsInput> = {}
+): Promise<void> {
+  if (count < 1) {
+    throw new Error('startDispatchResumeDemos: count must be at least 1');
+  }
+  const batchT0 = Date.now();
+  const base = `scale_${batchT0}`;
+  const { runId: inputRunId, resultTableName: inputResultTable, ...inputRest } = input;
+  const startPromises = Array.from({ length: count }, (_, i) => {
+    const runId = inputRunId != null ? `${String(inputRunId)}_${i}` : `run_${base}_w${i}`;
+    const resultTableName = inputResultTable ?? `demo_partner_q1_${runId}_result`;
+    const args: [DispatchActionsInput] = [
+      { ...defaultDispatchInputBase(), ...inputRest, runId, resultTableName },
+    ];
+    const workflowId = `dispatch-resume-scale-w${i}-${base}`;
+    return client.workflow
+      .start(DispatchResumeDemoWorkflow, {
+        taskQueue,
+        workflowId,
+        args,
+      })
+      .then((h) => ({ i, workflowId, handle: h, tAckMs: Date.now() - batchT0 }));
+  });
+
+  const tSubmit0 = Date.now();
+  const acks = await Promise.all(startPromises);
+  const totalSubmitMs = Date.now() - tSubmit0;
+
+  const firstAckMs = Math.min(...acks.map((a) => a.tAckMs));
+  const lastAckMs = Math.max(...acks.map((a) => a.tAckMs));
+  console.log(
+    `DispatchResume scale: submitted ${count} workflows, server accept spread ${firstAckMs}..${lastAckMs}ms from batch t0, Promise.all ${totalSubmitMs}ms`
+  );
+  acks.sort((a, b) => a.i - b.i);
+  for (const a of acks) {
+    console.log(`  [${a.i}] ${a.workflowId}  (accept +${a.tAckMs}ms)`);
+  }
+  console.log(
+    'Not awaiting results. With one worker, watch pickup delay via worker activity logs (dispatchActions) or the Temporal UI.'
+  );
+}
+
 /** executeQuery (short) + dispatch; optional `failOnRowIndex` on dispatch via `dispatchOptions`. */
 export async function startPodeQueryPipelineDemo(
   client: Client,

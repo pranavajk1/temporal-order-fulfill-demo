@@ -7,6 +7,7 @@ import {
   getDefaultOrders,
   startLongQueryDemo,
   startDispatchResumeDemo,
+  startDispatchResumeDemos,
   startPodeQueryPipelineDemo,
 } from './starter';
 import yargs from 'yargs';
@@ -37,7 +38,7 @@ async function run({
   serverNameOverride,
   serverRootCACertificatePath,
   taskQueue,
-}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number, longQuery?: boolean, dispatchResume?: boolean, podeQueryPipeline?: boolean) {
+}: EnvWithApiKey, numOrders?: number, invalidPercentage?: number, longQuery?: boolean, dispatchResume?: boolean, podeQueryPipeline?: boolean, dispatchCount?: number) {
   let client: Client;
   let connection: Connection | NativeConnection;
 
@@ -89,7 +90,12 @@ async function run({
     return;
   }
   if (dispatchResume) {
-    await startDispatchResumeDemo(client, taskQueue);
+    const n = dispatchCount ?? 1;
+    if (n > 1) {
+      await startDispatchResumeDemos(client, taskQueue, n);
+    } else {
+      await startDispatchResumeDemo(client, taskQueue);
+    }
     return;
   }
   if (longQuery) {
@@ -187,15 +193,21 @@ const argv = yargs(hideBin(process.argv)).options({
     default: false,
     description: 'Run PodeQueryPipelineWorkflow: executeQuery (short) then dispatchActions',
   },
+  dispatchCount: {
+    type: 'number',
+    default: 1,
+    description: 'With --dispatchResume: how many workflow starts (default 1 = single run, awaits result; >1 fire-and-forget for scale test)',
+  },
 }).argv as {
   numOrders?: number;
   invalidPercentage?: number;
   longQuery?: boolean;
   dispatchResume?: boolean;
   podeQueryPipeline?: boolean;
+  dispatchCount?: number;
 };
 
-run(getEnv(), argv.numOrders, argv.invalidPercentage, argv.longQuery, argv.dispatchResume, argv.podeQueryPipeline).then(
+run(getEnv(), argv.numOrders, argv.invalidPercentage, argv.longQuery, argv.dispatchResume, argv.podeQueryPipeline, argv.dispatchCount).then(
   () => process.exit(0),
   (err) => {
     console.error(err);

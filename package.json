@@ -9,7 +9,8 @@
     "start": "ts-node src/worker.ts",
     "start.watch": "nodemon src/worker.ts",
     "workflow": "ts-node src/client.ts",
-    "export-csv": "NODE_OPTIONS=--max-old-space-size=16384 ts-node src/export-to-csv.ts"
+    "export-csv": "NODE_OPTIONS=--max-old-space-size=16384 ts-node src/export-to-csv.ts",
+    "report-dispatch": "ts-node src/report-dispatch-pickup.ts"
   },
   "nodemonConfig": {
     "execMap": {
